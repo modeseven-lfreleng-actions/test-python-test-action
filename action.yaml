@@ -90,35 +90,22 @@ runs:
         report_artefact=$(echo "${{ inputs.report_artefact }}" |\
         tr '[:upper:]' '[:lower:]')
         if [ "f$report_artefact" = "ftrue" ]; then
-          echo "Coverage report artefacts enabled ✅"
+          echo "Coverage report artefacts enabled 💬"
           echo "report_artefact=true" >> "$GITHUB_ENV"
         fi
         tox_tests=$(echo "${{ inputs.tox_tests }}" |\
         tr '[:upper:]' '[:lower:]')
         if [ "f$tox_tests" = "ftrue" ]; then
-          echo "Using tox to perform tests ✅"
+          echo "Using tox to perform tests 💬"
           echo "tox_tests=true" >> "$GITHUB_ENV"
           if [ -z ${{ inputs.tox_envs }} ]; then
-            echo "Error: no tox environments were specified ❌"
-            exit 1
+            echo "Error: no tox environments were specified ❌"; exit 1
+          else
+            echo "Tox environments to run: ${{ inputs.tox_envs }} 💬"
           fi
         fi
 
-        # Install modules required for testing
-        echo "Install tooling: pytest, pytest-cov, tox ⬇️"
-        pip install --disable-pip-version-check -q \
-          pytest pytest-cov tox
-
-        echo "Install declared project dependencies"
-        if [ -f ${{ inputs.path_prefix }}pyproject.toml ]; then
-            echo "Source: ${{ inputs.path_prefix }}pyproject.toml ⬇️"
-            yq '.project.dependencies[]' pyproject.toml | xargs -r pip -q install
-        elif [ -f ${{ inputs.path_prefix }}requirements.txt ]; then
-          echo "Source: ${{ inputs.path_prefix }}requirements.txt ⬇️"
-          pip install -q -r "${{ inputs.path_prefix }}requirements.txt"
-        fi
-
-        # Setup test path
+        # Check/setup test path
         if [ -n "${{ inputs.tests_path }}" ]; then
           TESTS_PATH="${{ inputs.path_prefix }}${{ inputs.tests_path }}"
         # Otherwise use common locations
@@ -130,6 +117,7 @@ runs:
           echo "Error: no valid test path was found ❌"
           exit 1
         fi
+        echo "Tests path: $TESTS_PATH 💬"
         echo "tests_path=$TESTS_PATH" >> "$GITHUB_ENV"
 
     - name: "Check for tox configuration file"
@@ -159,6 +147,8 @@ runs:
       shell: bash
       run: |
         # Performing tests [tox]
+        echo "Installing: tox ⬇️"
+        pip install --disable-pip-version-check -q tox
         for ENVIRONMENT in ${{ inputs.tox_envs }}; do
           echo "Running: tox -c ${{ inputs.path_prefix }}tox.ini -e $ENVIRONMENT"
           tox -c ${{ inputs.path_prefix }}tox.ini -e "$ENVIRONMENT"
@@ -169,6 +159,19 @@ runs:
       shell: bash
       run: |
         # Tests and coverage report [pytest]
+        echo "Installing: pytest, pytest-cov ⬇️"
+        pip install --disable-pip-version-check -q pytest pytest-cov
+
+        echo "Install declared project dependencies"
+        if [ -f ${{ inputs.path_prefix }}pyproject.toml ]; then
+            echo "Source: ${{ inputs.path_prefix }}pyproject.toml ⬇️"
+            yq '.project.dependencies[]' \
+              ${{ inputs.path_prefix }}pyproject.toml |\
+              xargs -r pip -q install
+        elif [ -f ${{ inputs.path_prefix }}requirements.txt ]; then
+          echo "Source: ${{ inputs.path_prefix }}requirements.txt ⬇️"
+          pip install -q -r "${{ inputs.path_prefix }}requirements.txt"
+        fi
           echo "Running tests in: ${{ env.tests_path }} 🧪"
         if [ "${{ env.permit_fail }}" = 'true' ]; then
           pytest --cov --cov-report=html:coverage_report \
@@ -189,7 +192,6 @@ runs:
         else
           echo "No coverage report directory exists"
         fi
-        echo "report_artefact=$report_artefact" >> "$GITHUB_ENV"
 
     - name: "Upload test/coverage report"
       if: ${{ env.report_artefact }} == 'true'
